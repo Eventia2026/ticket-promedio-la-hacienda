@@ -29,6 +29,7 @@ const SUGERENCIAS_COLLECTION_NAME = "minisuper_sugerencias";
 const ACTIVIDADES_COLLECTION_NAME = "minisuper_actividades";
 
 const form = document.getElementById("turno-form");
+const turnoSelect = document.getElementById("turno");
 const fechaInput = document.getElementById("fecha");
 const ventaTurnoInput = document.getElementById("ventaTurno");
 const numeroTicketsInput = document.getElementById("numeroTickets");
@@ -113,7 +114,12 @@ const bajaRotacionIds = ["bajaRotacion1", "bajaRotacion2", "bajaRotacion3"];
 const mermaProductoInput = document.getElementById("mermaProducto");
 const mermaCantidadInput = document.getElementById("mermaCantidad");
 
-const EMPLEADAS = ["NITZIA", "PAOLA", "VALERIA"];
+const EMPLEADAS_CONFIG = [
+  { id: "NITZIA", etiqueta: "NITZIA", activa: true },
+  { id: "VALERIA", etiqueta: "VALERIA", activa: true },
+  { id: "Empleado general", etiqueta: "Empleado general", activa: true },
+  { id: "PAOLA", etiqueta: "PAOLA", activa: false },
+];
 
 let registros = [];
 let modoDatos = "local";
@@ -129,6 +135,7 @@ let actividades = [];
 let currentSection = "tickets";
 let editingSugerenciaId = null;
 
+poblarSelectoresEmpleadas();
 fechaInput.value = obtenerFechaHoy();
 sugerenciaFechaInput.value = obtenerFechaHoy();
 actividadFechaInput.value = obtenerFechaHoy();
@@ -243,6 +250,86 @@ function vigilarSesion() {
     escucharTurnosCompartidos();
     escucharSugerenciasCompartidas();
     escucharActividadesCompartidas();
+  });
+}
+
+function obtenerEmpleadasActivas() {
+  return EMPLEADAS_CONFIG.filter((empleada) => empleada.activa);
+}
+
+function obtenerEmpleadasAnalisis() {
+  return EMPLEADAS_CONFIG;
+}
+
+function obtenerEtiquetaEmpleada(valor, mostrarEstado = false) {
+  const configuracion = EMPLEADAS_CONFIG.find((empleada) => empleada.id === valor);
+  if (!configuracion) {
+    return valor || "-";
+  }
+
+  if (mostrarEstado && !configuracion.activa) {
+    return `${configuracion.etiqueta} (archivada)`;
+  }
+
+  return configuracion.etiqueta;
+}
+
+function poblarSelect(select, opciones, configuracion = {}) {
+  const {
+    incluirTodas = false,
+    valorActual = "",
+    mostrarEstado = false,
+  } = configuracion;
+
+  const opcionesFinales = [...opciones];
+
+  if (valorActual && !opcionesFinales.some((item) => item.id === valorActual)) {
+    const extra = EMPLEADAS_CONFIG.find((item) => item.id === valorActual);
+    if (extra) {
+      opcionesFinales.push(extra);
+    }
+  }
+
+  select.innerHTML = "";
+
+  if (incluirTodas) {
+    const optionTodas = document.createElement("option");
+    optionTodas.value = "TODAS";
+    optionTodas.textContent = "Todas";
+    select.appendChild(optionTodas);
+  }
+
+  opcionesFinales.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = mostrarEstado ? obtenerEtiquetaEmpleada(item.id, true) : item.etiqueta;
+    select.appendChild(option);
+  });
+
+  if (valorActual && [...select.options].some((option) => option.value === valorActual)) {
+    select.value = valorActual;
+  } else if (incluirTodas) {
+    select.value = "TODAS";
+  } else if (select.options.length > 0) {
+    select.selectedIndex = 0;
+  }
+}
+
+function poblarSelectoresEmpleadas(opciones = {}) {
+  const activas = obtenerEmpleadasActivas();
+  const analisis = obtenerEmpleadasAnalisis();
+
+  poblarSelect(turnoSelect, activas, { valorActual: opciones.turnoActual || turnoSelect.value });
+  poblarSelect(sugerenciaEmpleadaInput, activas, {
+    valorActual: opciones.sugerenciaActual || sugerenciaEmpleadaInput.value,
+  });
+  poblarSelect(actividadEmpleadaInput, activas, {
+    valorActual: opciones.actividadActual || actividadEmpleadaInput.value,
+  });
+  poblarSelect(filtroEmpleada, analisis, {
+    incluirTodas: true,
+    valorActual: opciones.filtroActual || filtroEmpleada.value || "TODAS",
+    mostrarEstado: true,
   });
 }
 
@@ -533,7 +620,7 @@ function renderizarRegistros() {
       return `
         <tr>
           <td>${registro.fecha}</td>
-          <td>${registro.turno}</td>
+          <td>${obtenerEtiquetaEmpleada(registro.turno, true)}</td>
           <td>${formatearMoneda(registro.ventaTurno)}</td>
           <td>${registro.numeroTickets}</td>
           <td>${formatearMoneda(registro.promedioTicket)}</td>
@@ -575,15 +662,15 @@ function renderizarResumenSemanal() {
   semanaPromedio.textContent = formatearMoneda(analisis.promedio);
   semanaProductoTop.textContent = resumenSugerencias.productoTop || "Sin datos";
 
-  semanaEmpleadas.innerHTML = EMPLEADAS.map((empleada) => {
-    const datos = registrosSemana.filter((registro) => registro.turno === empleada);
+  semanaEmpleadas.innerHTML = obtenerEmpleadasAnalisis().map((empleada) => {
+    const datos = registrosSemana.filter((registro) => registro.turno === empleada.id);
     const totalVenta = datos.reduce((acumulado, registro) => acumulado + registro.ventaTurno, 0);
     const totalTickets = datos.reduce((acumulado, registro) => acumulado + registro.numeroTickets, 0);
     const promedio = totalTickets > 0 ? totalVenta / totalTickets : 0;
 
     return `
       <article class="card">
-        <p class="card-label">${empleada}</p>
+        <p class="card-label">${obtenerEtiquetaEmpleada(empleada.id, true)}</p>
         <p class="card-value">${formatearMoneda(totalVenta)}</p>
         <p>Turnos en la semana: ${datos.length}</p>
         <p>Tickets atendidos: ${totalTickets}</p>
@@ -594,7 +681,9 @@ function renderizarResumenSemanal() {
 }
 
 function renderizarAnalisisEmpleadas() {
-  const personas = filtroEmpleada.value === "TODAS" ? EMPLEADAS : [filtroEmpleada.value];
+  const personas = filtroEmpleada.value === "TODAS"
+    ? obtenerEmpleadasAnalisis().map((empleada) => empleada.id)
+    : [filtroEmpleada.value];
   const registrosBase = obtenerRegistrosVisibles(false);
 
   analisisEmpleadas.innerHTML = personas
@@ -606,7 +695,7 @@ function renderizarAnalisisEmpleadas() {
       const promedio = tickets > 0 ? venta / tickets : 0;
       return `
         <article class="card">
-          <p class="card-label">${empleada}</p>
+          <p class="card-label">${obtenerEtiquetaEmpleada(empleada, true)}</p>
           <p class="card-value">${formatearMoneda(venta)}</p>
           <p>Turnos registrados: ${turnos}</p>
           <p>Tickets atendidos: ${tickets}</p>
@@ -665,13 +754,13 @@ function renderizarActividades() {
   actividadEmpleadaTop.textContent = resumen.empleadaTop || "Sin datos";
   actividadUltimoRegistro.textContent = resumen.ultimoRegistro || "Sin datos";
 
-  actividadResumenEmpleadas.innerHTML = EMPLEADAS.map((empleada) => {
-    const datos = actividadesSemana.filter((item) => item.empleada === empleada);
+  actividadResumenEmpleadas.innerHTML = obtenerEmpleadasAnalisis().map((empleada) => {
+    const datos = actividadesSemana.filter((item) => item.empleada === empleada.id);
     const ultima = datos[0];
 
     return `
       <article class="card">
-        <p class="card-label">${empleada}</p>
+        <p class="card-label">${obtenerEtiquetaEmpleada(empleada.id, true)}</p>
         <p class="card-value">${datos.length}</p>
         <p>Actividades registradas: ${datos.length}</p>
         <p>Ultima actividad: ${ultima ? ultima.detalle : "Sin registros"}</p>
@@ -693,7 +782,7 @@ function renderizarActividades() {
     .map((item) => `
       <tr>
         <td>${item.fecha}</td>
-        <td>${item.empleada}</td>
+        <td>${obtenerEtiquetaEmpleada(item.empleada, true)}</td>
         <td>${item.detalle}</td>
       </tr>
     `)
@@ -732,7 +821,8 @@ function iniciarEdicion(id) {
   }
 
   editingId = id;
-  form.turno.value = registro.turno;
+  poblarSelectoresEmpleadas({ turnoActual: registro.turno, filtroActual: filtroEmpleada.value });
+  turnoSelect.value = registro.turno;
   fechaInput.value = registro.fecha;
   ventaTurnoInput.value = registro.ventaTurno;
   numeroTicketsInput.value = registro.numeroTickets;
@@ -766,6 +856,7 @@ function cancelarEdicion() {
 function limpiarFormularioCompleto() {
   editingId = null;
   form.reset();
+  poblarSelectoresEmpleadas({ filtroActual: filtroEmpleada.value });
   fechaInput.value = obtenerFechaHoy();
   promedioTicketInput.value = formatearMoneda(0);
   cancelarEdicionBtn.classList.add("hidden");
@@ -901,6 +992,7 @@ async function manejarActividad(event) {
 function limpiarFormularioSugerencia() {
   editingSugerenciaId = null;
   sugerenciasForm.reset();
+  poblarSelectoresEmpleadas({ filtroActual: filtroEmpleada.value });
   sugerenciaFechaInput.value = obtenerFechaHoy();
   sugerenciaCantidadInput.value = 1;
   sugerenciaOrigenInput.value = "NUEVO";
@@ -920,6 +1012,7 @@ function toggleResumenSugerencias() {
 
 function limpiarFormularioActividad() {
   actividadesForm.reset();
+  poblarSelectoresEmpleadas({ filtroActual: filtroEmpleada.value });
   actividadFechaInput.value = obtenerFechaHoy();
   actividadDetalleInput.focus();
 }
@@ -942,7 +1035,7 @@ function exportarCsv() {
 
   const filas = registrosFiltrados.map((registro) => [
     registro.fecha,
-    registro.turno,
+    obtenerEtiquetaEmpleada(registro.turno, true),
     registro.ventaTurno,
     registro.numeroTickets,
     registro.promedioTicket,
@@ -977,7 +1070,7 @@ function generarPdf() {
       return `
         <tr>
           <td>${registro.fecha}</td>
-          <td>${registro.turno}</td>
+          <td>${obtenerEtiquetaEmpleada(registro.turno, true)}</td>
           <td>${formatearMoneda(registro.ventaTurno)}</td>
           <td>${registro.numeroTickets}</td>
           <td>${formatearMoneda(registro.promedioTicket)}</td>
@@ -1275,12 +1368,12 @@ function generarPdfSemanal() {
 
   const analisis = obtenerAnalisisResumen(registrosSemana);
   const resumenSugerencias = obtenerResumenSugerencias(sugerenciasSemana);
-  const resumenEmpleadas = EMPLEADAS.map((empleada) => {
-    const datos = registrosSemana.filter((registro) => registro.turno === empleada);
+  const resumenEmpleadas = obtenerEmpleadasAnalisis().map((empleada) => {
+    const datos = registrosSemana.filter((registro) => registro.turno === empleada.id);
     const venta = datos.reduce((acumulado, registro) => acumulado + registro.ventaTurno, 0);
     const tickets = datos.reduce((acumulado, registro) => acumulado + registro.numeroTickets, 0);
     return {
-      empleada,
+      empleada: empleada.id,
       turnos: datos.length,
       venta,
       promedio: tickets > 0 ? venta / tickets : 0,
@@ -1289,7 +1382,7 @@ function generarPdfSemanal() {
 
   const filasEmpleadas = resumenEmpleadas.map((item) => `
     <tr>
-      <td>${item.empleada}</td>
+      <td>${obtenerEtiquetaEmpleada(item.empleada, true)}</td>
       <td>${item.turnos}</td>
       <td>${formatearMoneda(item.venta)}</td>
       <td>${formatearMoneda(item.promedio)}</td>
@@ -1390,17 +1483,17 @@ function generarPdfActividadesSemanal() {
     .map((item) => `
       <tr>
         <td>${item.fecha}</td>
-        <td>${item.empleada}</td>
+        <td>${obtenerEtiquetaEmpleada(item.empleada, true)}</td>
         <td>${item.detalle}</td>
       </tr>
     `)
     .join("");
 
-  const filasEmpleadas = EMPLEADAS.map((empleada) => {
-    const datos = actividadesSemana.filter((item) => item.empleada === empleada);
+  const filasEmpleadas = obtenerEmpleadasAnalisis().map((empleada) => {
+    const datos = actividadesSemana.filter((item) => item.empleada === empleada.id);
     return `
       <tr>
-        <td>${empleada}</td>
+        <td>${obtenerEtiquetaEmpleada(empleada.id, true)}</td>
         <td>${datos.length}</td>
         <td>${datos[0] ? datos[0].detalle : "Sin registros"}</td>
       </tr>
@@ -1797,7 +1890,7 @@ function renderizarRegistrosSugerencias() {
     .map((item) => `
       <tr>
         <td>${item.fecha}</td>
-        <td>${item.empleada}</td>
+        <td>${obtenerEtiquetaEmpleada(item.empleada, true)}</td>
         <td>${item.origen === "FUERA_STOCK" ? "Existente fuera de stock" : "Producto nuevo"}</td>
         <td>${item.producto}</td>
         <td>${item.cantidad}</td>
@@ -1823,6 +1916,10 @@ function iniciarEdicionSugerencia(id) {
   }
 
   editingSugerenciaId = id;
+  poblarSelectoresEmpleadas({
+    sugerenciaActual: sugerencia.empleada,
+    filtroActual: filtroEmpleada.value,
+  });
   sugerenciaFechaInput.value = sugerencia.fecha;
   sugerenciaEmpleadaInput.value = sugerencia.empleada;
   sugerenciaOrigenInput.value = sugerencia.origen || "NUEVO";
