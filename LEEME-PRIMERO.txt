@@ -1,0 +1,19 @@
+Esta carpeta contiene solo los archivos de la pagina del minisuper.
+
+Archivos de esta pagina:
+- index.html
+- styles.css
+- script.js
+- firebase-config.js
+- logo.png.png
+
+Si quieres actualizar la pagina en GitHub:
+1. Entra al repositorio correcto.
+2. Da clic en "Add file".
+3. Elige "Upload files".
+4. Sube los archivos de esta carpeta.
+5. Da clic en "Commit changes".
+
+Si quieres que tambien se vea el cambio en la pagina publicada:
+- Espera 1 o 2 minutos despues del commit.
+- Luego abre la pagina y presiona Ctrl + F5.
