@@ -64,11 +64,19 @@ const exportarCsvBtn = document.getElementById("exportar-csv");
 const generarPdfBtn = document.getElementById("generar-pdf");
 const generarPdfSemanalBtn = document.getElementById("generar-pdf-semanal");
 const filtroEmpleada = document.getElementById("filtro-empleada");
+const filtroPeriodoTickets = document.getElementById("filtro-periodo-tickets");
+const filtroFechaBaseTickets = document.getElementById("filtro-fecha-base-tickets");
+const filtroFechaBaseTicketsField = filtroFechaBaseTickets.closest(".field");
 const filtroFechaInicio = document.getElementById("filtro-fecha-inicio");
 const filtroFechaFin = document.getElementById("filtro-fecha-fin");
 const ordenRegistros = document.getElementById("orden-registros");
 const limpiarFiltrosBtn = document.getElementById("limpiar-filtros");
 const analisisEmpleadas = document.getElementById("analisis-empleadas");
+const textoPeriodoTickets = document.getElementById("texto-periodo-tickets");
+const periodoCustomFields = document.querySelectorAll(".periodo-custom");
+const generarPdfProductosBtn = document.getElementById("generar-pdf-productos");
+const productoVendidoPeriodo = document.getElementById("producto-vendido-periodo");
+const productoBajaPeriodo = document.getElementById("producto-baja-periodo");
 const modoAviso = document.getElementById("modo-aviso");
 const authOverlay = document.getElementById("auth-overlay");
 const loginForm = document.getElementById("login-form");
@@ -98,6 +106,8 @@ const topSugerencias = document.getElementById("top-sugerencias");
 const resumenSugerenciasBox = document.getElementById("resumen-sugerencias-box");
 const toggleResumenSugerenciasBtn = document.getElementById("toggle-resumen-sugerencias");
 const generarPdfSugerenciasBtn = document.getElementById("generar-pdf-sugerencias");
+const sugerenciasPeriodoPdf = document.getElementById("sugerencias-periodo-pdf");
+const sugerenciasFechaBasePdf = document.getElementById("sugerencias-fecha-base-pdf");
 const topVentasIds = ["topVenta1", "topVenta2", "topVenta3", "topVenta4", "topVenta5"];
 const bajaRotacionIds = ["bajaRotacion1", "bajaRotacion2", "bajaRotacion3"];
 const mermaProductoInput = document.getElementById("mermaProducto");
@@ -122,6 +132,8 @@ let editingSugerenciaId = null;
 fechaInput.value = obtenerFechaHoy();
 sugerenciaFechaInput.value = obtenerFechaHoy();
 actividadFechaInput.value = obtenerFechaHoy();
+filtroFechaBaseTickets.value = obtenerFechaHoy();
+sugerenciasFechaBasePdf.value = obtenerFechaHoy();
 aplicarTemaGuardado();
 actualizarCalculados();
 registrarEventos();
@@ -133,7 +145,7 @@ function registrarEventos() {
     input.addEventListener("input", actualizarCalculados);
   });
 
-  [filtroEmpleada, filtroFechaInicio, filtroFechaFin, ordenRegistros].forEach((control) => {
+  [filtroEmpleada, filtroPeriodoTickets, filtroFechaBaseTickets, filtroFechaInicio, filtroFechaFin, ordenRegistros].forEach((control) => {
     control.addEventListener("change", refrescarVista);
   });
 
@@ -144,6 +156,7 @@ function registrarEventos() {
   exportarCsvBtn.addEventListener("click", exportarCsv);
   generarPdfBtn.addEventListener("click", generarPdf);
   generarPdfSemanalBtn.addEventListener("click", generarPdfSemanal);
+  generarPdfProductosBtn.addEventListener("click", generarPdfProductosPeriodo);
   loginForm.addEventListener("submit", manejarLogin);
   cerrarSesionBtn.addEventListener("click", manejarCerrarSesion);
   themeToggle.addEventListener("click", alternarTema);
@@ -604,6 +617,12 @@ function renderizarAnalisisEmpleadas() {
     .join("");
 }
 
+function renderizarResumenProductosPeriodo() {
+  const resumen = obtenerResumenProductosPeriodo(obtenerRegistrosVisibles(false));
+  productoVendidoPeriodo.textContent = resumen.productoTop || "Sin datos";
+  productoBajaPeriodo.textContent = resumen.productoBaja || "Sin datos";
+}
+
 function renderizarResumenSugerencias() {
   const resumen = obtenerResumenSugerencias();
   totalSugerencias.textContent = String(resumen.totalSolicitudes);
@@ -1030,7 +1049,11 @@ function generarPdf() {
 }
 
 function generarPdfSugerencias() {
-  const resumen = obtenerResumenSugerencias();
+  const fechaBase = sugerenciasFechaBasePdf.value || obtenerFechaHoy();
+  const periodo = sugerenciasPeriodoPdf.value;
+  const rango = obtenerRangoPeriodo(periodo, fechaBase);
+  const sugerenciasFiltradas = sugerencias.filter((item) => item.fecha >= rango.inicio && item.fecha <= rango.fin);
+  const resumen = obtenerResumenSugerencias(sugerenciasFiltradas);
 
   if (!resumen.productos.length) {
     alert("No hay sugerencias para generar el PDF.");
@@ -1038,10 +1061,10 @@ function generarPdfSugerencias() {
   }
 
   const resumenNuevos = obtenerResumenSugerencias(
-    sugerencias.filter((item) => (item.origen || "NUEVO") === "NUEVO")
+    sugerenciasFiltradas.filter((item) => (item.origen || "NUEVO") === "NUEVO")
   );
   const resumenFueraStock = obtenerResumenSugerencias(
-    sugerencias.filter((item) => item.origen === "FUERA_STOCK")
+    sugerenciasFiltradas.filter((item) => item.origen === "FUERA_STOCK")
   );
 
   const filasNuevos = resumenNuevos.productos
@@ -1102,7 +1125,7 @@ function generarPdfSugerencias() {
         <img src="logo.png.png" alt="Logo">
         <div>
           <h1>MINISUPER LA HACIENDA</h1>
-          <p class="meta">Reporte de sugerencias generado el ${formatearFechaHoraActual()}</p>
+          <p class="meta">Reporte de sugerencias | ${construirEtiquetaPeriodo(periodo, rango.inicio, rango.fin)} | Generado el ${formatearFechaHoraActual()}</p>
         </div>
       </div>
       <div class="summary">
@@ -1135,6 +1158,103 @@ function generarPdfSugerencias() {
           </tr>
         </thead>
         <tbody>${filasFueraStock || '<tr><td colspan="5">Sin productos fuera de stock registrados.</td></tr>'}</tbody>
+      </table>
+      <script>window.onload = function () { window.print(); };<\/script>
+    </body>
+    </html>
+  `);
+  ventana.document.close();
+}
+
+function generarPdfProductosPeriodo() {
+  const registrosFiltrados = obtenerRegistrosVisibles(false);
+  const resumen = obtenerResumenProductosPeriodo(registrosFiltrados);
+
+  if (!resumen.vendidos.length && !resumen.baja.length) {
+    alert("No hay productos suficientes en el periodo seleccionado para generar el reporte.");
+    return;
+  }
+
+  const filasVendidos = resumen.vendidos
+    .slice(0, 10)
+    .map((item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${item.producto}</td>
+        <td>${item.cantidad}</td>
+      </tr>
+    `)
+    .join("");
+
+  const filasBaja = resumen.baja
+    .slice(0, 10)
+    .map((item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${item.producto}</td>
+        <td>${item.cantidad}</td>
+      </tr>
+    `)
+    .join("");
+
+  const ventana = window.open("", "_blank", "width=1100,height=850");
+  if (!ventana) {
+    alert("Tu navegador bloqueo la ventana del reporte. Permite ventanas emergentes e intenta de nuevo.");
+    return;
+  }
+
+  ventana.document.write(`
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <title>Reporte de productos - MINISUPER LA HACIENDA</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 32px; color: #2f241a; }
+        .brand { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
+        .brand img { width: 90px; height: 90px; object-fit: contain; }
+        .meta { margin-bottom: 20px; color: #6f5844; }
+        .summary { display: grid; grid-template-columns: repeat(2, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+        .box { border: 1px solid #d7c3aa; border-radius: 10px; padding: 12px; background: #fbf4ea; }
+        .box strong { display: block; margin-bottom: 8px; font-size: 12px; text-transform: uppercase; color: #6f5844; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px; }
+        th, td { border: 1px solid #e4d3be; padding: 8px; text-align: left; vertical-align: top; }
+        th { background: #f3e6d5; }
+      </style>
+    </head>
+    <body>
+      <div class="brand">
+        <img src="logo.png.png" alt="Logo">
+        <div>
+          <h1>MINISUPER LA HACIENDA</h1>
+          <p class="meta">Reporte de productos | ${construirResumenFiltros()} | Generado el ${formatearFechaHoraActual()}</p>
+        </div>
+      </div>
+      <div class="summary">
+        <div class="box"><strong>Producto mas vendido</strong>${resumen.productoTop || "Sin datos"}</div>
+        <div class="box"><strong>Producto menos vendido</strong>${resumen.productoBaja || "Sin datos"}</div>
+      </div>
+      <h2>Top productos mas vendidos</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Producto</th>
+            <th>Apariciones en top ventas</th>
+          </tr>
+        </thead>
+        <tbody>${filasVendidos || '<tr><td colspan="3">Sin productos vendidos en el periodo.</td></tr>'}</tbody>
+      </table>
+      <h2>Productos con menor rotacion</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Producto</th>
+            <th>Apariciones en baja rotacion</th>
+          </tr>
+        </thead>
+        <tbody>${filasBaja || '<tr><td colspan="3">Sin productos de baja rotacion en el periodo.</td></tr>'}</tbody>
       </table>
       <script>window.onload = function () { window.print(); };<\/script>
     </body>
@@ -1354,19 +1474,33 @@ function generarPdfActividadesSemanal() {
   ventana.document.close();
 }
 
+function actualizarEstadoFiltrosTickets() {
+  const periodo = filtroPeriodoTickets.value;
+  const usaRangoPersonalizado = periodo === "personalizado";
+
+  filtroFechaBaseTicketsField.classList.toggle("hidden", usaRangoPersonalizado);
+  periodoCustomFields.forEach((field) => {
+    field.classList.toggle("hidden", !usaRangoPersonalizado);
+  });
+
+  const descripcion = construirEtiquetaPeriodoTickets();
+  textoPeriodoTickets.textContent = descripcion;
+}
+
 function obtenerRegistrosVisibles(aplicarOrden = true) {
   let resultado = [...registros];
+  const rango = obtenerRangoActivoTickets();
 
   if (filtroEmpleada.value !== "TODAS") {
     resultado = resultado.filter((registro) => registro.turno === filtroEmpleada.value);
   }
 
-  if (filtroFechaInicio.value) {
-    resultado = resultado.filter((registro) => registro.fecha >= filtroFechaInicio.value);
+  if (rango.inicio) {
+    resultado = resultado.filter((registro) => registro.fecha >= rango.inicio);
   }
 
-  if (filtroFechaFin.value) {
-    resultado = resultado.filter((registro) => registro.fecha <= filtroFechaFin.value);
+  if (rango.fin) {
+    resultado = resultado.filter((registro) => registro.fecha <= rango.fin);
   }
 
   if (!aplicarOrden) {
@@ -1374,6 +1508,103 @@ function obtenerRegistrosVisibles(aplicarOrden = true) {
   }
 
   return resultado.sort((a, b) => compararRegistros(a, b, ordenRegistros.value));
+}
+
+function obtenerRangoActivoTickets() {
+  const periodo = filtroPeriodoTickets.value;
+
+  if (periodo === "personalizado") {
+    return {
+      tipo: periodo,
+      inicio: filtroFechaInicio.value || "",
+      fin: filtroFechaFin.value || "",
+    };
+  }
+
+  const fechaBase = filtroFechaBaseTickets.value || obtenerFechaHoy();
+  return {
+    tipo: periodo,
+    ...obtenerRangoPeriodo(periodo, fechaBase),
+  };
+}
+
+function obtenerRangoPeriodo(periodo, fechaBase) {
+  switch (periodo) {
+    case "dia":
+      return { inicio: fechaBase, fin: fechaBase };
+    case "semana":
+      return obtenerRangoSemanaParaFecha(fechaBase);
+    case "mes":
+      return obtenerRangoMesParaFecha(fechaBase);
+    case "anio":
+      return obtenerRangoAnioParaFecha(fechaBase);
+    default:
+      return { inicio: "", fin: "" };
+  }
+}
+
+function obtenerRangoSemanaParaFecha(fechaIso) {
+  const base = crearFechaLocalDesdeIso(fechaIso);
+  const dia = base.getDay();
+  const ajusteLunes = dia === 0 ? -6 : 1 - dia;
+  const inicio = new Date(base);
+  inicio.setDate(base.getDate() + ajusteLunes);
+
+  const fin = new Date(inicio);
+  fin.setDate(inicio.getDate() + 6);
+
+  return {
+    inicio: convertirFechaIsoLocal(inicio),
+    fin: convertirFechaIsoLocal(fin),
+  };
+}
+
+function obtenerRangoMesParaFecha(fechaIso) {
+  const base = crearFechaLocalDesdeIso(fechaIso);
+  const inicio = new Date(base.getFullYear(), base.getMonth(), 1);
+  const fin = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+
+  return {
+    inicio: convertirFechaIsoLocal(inicio),
+    fin: convertirFechaIsoLocal(fin),
+  };
+}
+
+function obtenerRangoAnioParaFecha(fechaIso) {
+  const base = crearFechaLocalDesdeIso(fechaIso);
+  const inicio = new Date(base.getFullYear(), 0, 1);
+  const fin = new Date(base.getFullYear(), 11, 31);
+
+  return {
+    inicio: convertirFechaIsoLocal(inicio),
+    fin: convertirFechaIsoLocal(fin),
+  };
+}
+
+function construirEtiquetaPeriodoTickets() {
+  const rango = obtenerRangoActivoTickets();
+  const nombreEmpleada = filtroEmpleada.value === "TODAS" ? "todas las empleadas" : filtroEmpleada.value;
+  const etiquetaPeriodo = construirEtiquetaPeriodo(rango.tipo, rango.inicio, rango.fin);
+  return `Analizando ${nombreEmpleada} | ${etiquetaPeriodo}`;
+}
+
+function construirEtiquetaPeriodo(tipo, inicio, fin) {
+  switch (tipo) {
+    case "dia":
+      return `Dia ${formatearFechaCorta(inicio)}`;
+    case "semana":
+      return `Semana del ${formatearFechaCorta(inicio)} al ${formatearFechaCorta(fin)}`;
+    case "mes":
+      return `Mes de ${obtenerNombreMes(inicio)}`;
+    case "anio":
+      return `Anio ${inicio ? inicio.slice(0, 4) : ""}`;
+    case "personalizado":
+    default:
+      if (inicio || fin) {
+        return `Rango personalizado: ${inicio ? formatearFechaCorta(inicio) : "sin inicio"} a ${fin ? formatearFechaCorta(fin) : "sin fin"}`;
+      }
+      return "Todo el historial disponible";
+  }
 }
 
 function compararRegistros(a, b, criterio) {
@@ -1396,6 +1627,8 @@ function compararRegistros(a, b, criterio) {
 
 function limpiarFiltros() {
   filtroEmpleada.value = "TODAS";
+  filtroPeriodoTickets.value = "personalizado";
+  filtroFechaBaseTickets.value = obtenerFechaHoy();
   filtroFechaInicio.value = "";
   filtroFechaFin.value = "";
   ordenRegistros.value = "fecha-desc";
@@ -1404,14 +1637,10 @@ function limpiarFiltros() {
 
 function construirResumenFiltros() {
   const partes = [];
+  const rango = obtenerRangoActivoTickets();
 
   partes.push(filtroEmpleada.value === "TODAS" ? "Todas las empleadas" : filtroEmpleada.value);
-
-  if (filtroFechaInicio.value || filtroFechaFin.value) {
-    const inicio = filtroFechaInicio.value || "sin inicio";
-    const fin = filtroFechaFin.value || "sin fin";
-    partes.push(`Fechas: ${inicio} a ${fin}`);
-  }
+  partes.push(`Periodo: ${construirEtiquetaPeriodo(rango.tipo, rango.inicio, rango.fin)}`);
 
   const etiquetasOrden = {
     "fecha-desc": "Fecha mas reciente",
@@ -1478,6 +1707,45 @@ function obtenerAnalisisResumen(registrosFiltrados) {
   const promedio = ticketsTotales > 0 ? ventaTotal / ticketsTotales : 0;
 
   return { turnos, ventaTotal, ticketsTotales, promedio };
+}
+
+function obtenerResumenProductosPeriodo(lista = registros) {
+  const vendidosMap = new Map();
+  const bajaMap = new Map();
+
+  lista.forEach((registro) => {
+    (registro.topVentas || []).forEach((producto) => {
+      const nombre = producto.trim();
+      if (!nombre) {
+        return;
+      }
+      const llave = nombre.toLowerCase();
+      const actual = vendidosMap.get(llave) || { producto: nombre, cantidad: 0 };
+      actual.cantidad += 1;
+      vendidosMap.set(llave, actual);
+    });
+
+    (registro.bajaRotacion || []).forEach((producto) => {
+      const nombre = producto.trim();
+      if (!nombre) {
+        return;
+      }
+      const llave = nombre.toLowerCase();
+      const actual = bajaMap.get(llave) || { producto: nombre, cantidad: 0 };
+      actual.cantidad += 1;
+      bajaMap.set(llave, actual);
+    });
+  });
+
+  const vendidos = [...vendidosMap.values()].sort((a, b) => b.cantidad - a.cantidad || a.producto.localeCompare(b.producto));
+  const baja = [...bajaMap.values()].sort((a, b) => b.cantidad - a.cantidad || a.producto.localeCompare(b.producto));
+
+  return {
+    vendidos,
+    baja,
+    productoTop: vendidos[0] ? `${vendidos[0].producto} (${vendidos[0].cantidad})` : "",
+    productoBaja: baja[0] ? `${baja[0].producto} (${baja[0].cantidad})` : "",
+  };
 }
 
 function obtenerResumenSugerencias(lista = sugerencias) {
@@ -1624,10 +1892,12 @@ function cargarActividadesLocales() {
 }
 
 function refrescarVista() {
+  actualizarEstadoFiltrosTickets();
   renderizarRegistros();
   renderizarResumen();
   renderizarResumenSemanal();
   renderizarAnalisisEmpleadas();
+  renderizarResumenProductosPeriodo();
   renderizarResumenSugerencias();
   renderizarActividades();
 }
@@ -1670,20 +1940,12 @@ function obtenerFechaHoy() {
 }
 
 function obtenerRangoSemanaActual() {
-  const hoy = new Date();
-  const dia = hoy.getDay();
-  const ajusteLunes = dia === 0 ? -6 : 1 - dia;
-  const inicio = new Date(hoy);
-  inicio.setHours(0, 0, 0, 0);
-  inicio.setDate(hoy.getDate() + ajusteLunes);
+  return obtenerRangoSemanaParaFecha(obtenerFechaHoy());
+}
 
-  const fin = new Date(inicio);
-  fin.setDate(inicio.getDate() + 6);
-
-  return {
-    inicio: convertirFechaIsoLocal(inicio),
-    fin: convertirFechaIsoLocal(fin),
-  };
+function crearFechaLocalDesdeIso(fechaIso) {
+  const [year, month, day] = (fechaIso || obtenerFechaHoy()).split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
 }
 
 function convertirFechaIsoLocal(fecha) {
@@ -1699,6 +1961,17 @@ function formatearFechaCorta(fechaIso) {
 
   const [year, month, day] = fechaIso.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function obtenerNombreMes(fechaIso) {
+  if (!fechaIso) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("es-MX", {
+    month: "long",
+    year: "numeric",
+  }).format(crearFechaLocalDesdeIso(fechaIso));
 }
 
 function formatearFechaHoraActual() {

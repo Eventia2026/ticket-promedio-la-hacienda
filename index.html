@@ -314,6 +314,26 @@
         </article>
       </div>
 
+      <div class="filter-bar">
+        <div class="field">
+          <label for="sugerencias-periodo-pdf">Periodo del PDF</label>
+          <select id="sugerencias-periodo-pdf" name="sugerenciasPeriodoPdf">
+            <option value="dia">Diario</option>
+            <option value="semana">Semanal</option>
+            <option value="mes">Mensual</option>
+            <option value="anio">Anual</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sugerencias-fecha-base-pdf">Fecha de referencia</label>
+          <input id="sugerencias-fecha-base-pdf" name="sugerenciasFechaBasePdf" type="date">
+        </div>
+        <div class="field filter-action">
+          <label>&nbsp;</label>
+          <button type="button" id="generar-pdf-sugerencias" class="secondary">Generar PDF sugerencias</button>
+        </div>
+      </div>
+
       <div class="panel-header compact-header">
         <div>
           <h2>Resumen de sugerencias</h2>
@@ -321,7 +341,6 @@
         </div>
         <div class="header-actions">
           <button type="button" id="toggle-resumen-sugerencias" class="secondary">Ver resumen</button>
-          <button type="button" id="generar-pdf-sugerencias" class="secondary">Generar PDF sugerencias</button>
         </div>
       </div>
 
@@ -494,10 +513,24 @@
           </select>
         </div>
         <div class="field">
+          <label for="filtro-periodo-tickets">Analizar por</label>
+          <select id="filtro-periodo-tickets" name="filtroPeriodoTickets">
+            <option value="personalizado">Rango personalizado</option>
+            <option value="dia">Dia</option>
+            <option value="semana">Semana</option>
+            <option value="mes">Mes</option>
+            <option value="anio">Anio</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="filtro-fecha-base-tickets">Fecha de referencia</label>
+          <input id="filtro-fecha-base-tickets" name="filtroFechaBaseTickets" type="date">
+        </div>
+        <div class="field periodo-custom">
           <label for="filtro-fecha-inicio">Fecha inicial</label>
           <input id="filtro-fecha-inicio" name="filtroFechaInicio" type="date">
         </div>
-        <div class="field">
+        <div class="field periodo-custom">
           <label for="filtro-fecha-fin">Fecha final</label>
           <input id="filtro-fecha-fin" name="filtroFechaFin" type="date">
         </div>
@@ -518,7 +551,29 @@
         </div>
       </div>
 
+      <p id="texto-periodo-tickets" class="period-hint">Mostrando todo el historial disponible.</p>
       <div id="analisis-empleadas" class="employee-grid"></div>
+
+      <div class="panel-header compact-header">
+        <div>
+          <h2>Resumen de productos del periodo</h2>
+          <p>Se calcula con los top 5 mas vendidos y los productos de baja rotacion capturados en los turnos visibles.</p>
+        </div>
+        <div class="header-actions">
+          <button type="button" id="generar-pdf-productos" class="secondary">Generar PDF de productos</button>
+        </div>
+      </div>
+
+      <div class="summary-grid compact-gap">
+        <article class="card">
+          <p class="card-label">Producto mas vendido</p>
+          <p id="producto-vendido-periodo" class="card-value small-value">Sin datos</p>
+        </article>
+        <article class="card">
+          <p class="card-label">Producto menos vendido</p>
+          <p id="producto-baja-periodo" class="card-value small-value">Sin datos</p>
+        </article>
+      </div>
     </section>
 
     <section class="panel" data-section="tickets">

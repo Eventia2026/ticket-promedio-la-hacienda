@@ -311,6 +311,12 @@ h1 {
   width: 100%;
 }
 
+.period-hint {
+  margin: 8px 0 18px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .field label,
 .card-label,
 th {
